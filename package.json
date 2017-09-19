@@ -1,7 +1,7 @@
 {
   "name": "gulp-template",
   "version": "1.0.0",
-  "description": "A Gulp framework template to initiate the building of front-end projects.",
+  "description": "Initial gulp framework template.",
   "main": "gulpfile.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -35,6 +35,7 @@
     "gulp-sass-lint": "^1.3.3",
     "gulp-sourcemaps": "^2.6.1",
     "gulp-uglify": "^3.0.0",
+    "gulp-util": "^3.0.8",
     "merge-stream": "^1.0.1"
   }
 }

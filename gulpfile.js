@@ -14,24 +14,43 @@ const gulp = require('gulp'),
     eslint = require('gulp-eslint'),
     babel = require('gulp-babel'),
     uglify = require('gulp-uglify'),
-    browserSync = require('browser-sync').create();
+    browserSync = require('browser-sync').create(),
+    gutil = require('gulp-util');
+
+const arg = (argList => {
+    let arg = {},
+        a, opt, thisOpt, curOpt;
+    for (a = 0; a < argList.length; a++) {
+        thisOpt = argList[a].trim();
+        opt = thisOpt.replace(/^\-+/, '');
+        if (opt === thisOpt) {
+            if (curOpt) arg[curOpt] = opt;
+            curOpt = null;
+        } else {
+            curOpt = opt;
+            arg[curOpt] = true;
+        }
+    }
+    return arg;
+})(process.argv);
+
 
 gulp.task('clean', () => {
-    del.sync(['web/*', '!web/media', '!web/media/**']);
+    del.sync(['features/' + arg.feature + '/web/*', '!features/' + arg.feature + '/web/media', '!features/' + arg.feature + '/web/media/**']);
 });
 
 gulp.task('copy', () => {
-    let icons_1 = gulp.src('src/font-icons/css/*.min.css')
-        .pipe(gulp.dest('web/font-icons/css')),
-        icons_2 = gulp.src('src/font-icons/fonts/*')
-        .pipe(gulp.dest('web/font-icons/fonts')),
-        plugins = gulp.src('src/plugins/**/*')
-        .pipe(gulp.dest('web/plugins'));
-    merge(icons_1, icons_2);
+    let icons_1 = gulp.src('features/' + arg.feature + '/src/font-icons/css/*.min.css')
+        .pipe(gulp.dest('features/' + arg.feature + '/web/font-icons/css')),
+        icons_2 = gulp.src('features/' + arg.feature + '/src/font-icons/fonts/*')
+        .pipe(gulp.dest('features/' + arg.feature + '/web/font-icons/fonts')),
+        plugins = gulp.src('features/' + arg.feature + '/src/plugins/**/*')
+        .pipe(gulp.dest('features/' + arg.feature + '/web/plugins'));
+    merge(icons_1, icons_2, plugins);
 });
 
 gulp.task('build-html', () => {
-    return gulp.src('src/*.htm')
+    return gulp.src('features/' + arg.feature + '/src/*.htm')
         .pipe(sourcemaps.init())
         .pipe(htmllint({
             rules: {
@@ -57,11 +76,11 @@ gulp.task('build-html', () => {
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
         .pipe(htmlmin({ collapseWhitespace: true }))
-        .pipe(gulp.dest('web'));
+        .pipe(gulp.dest('features/' + arg.feature + '/web'));
 });
 
 gulp.task('build-css', () => {
-    return gulp.src('src/scss/**/*.scss')
+    return gulp.src('features/' + arg.feature + '/src/scss/**/*.scss')
         .pipe(sourcemaps.init())
         .pipe(sassLint())
         .pipe(concat('styles.scss'))
@@ -70,12 +89,12 @@ gulp.task('build-css', () => {
         .pipe(sass())
         .pipe(autoprefixer('last 10 versions'))
         .pipe(cssnano())
-        .pipe(gulp.dest('web/css'))
-        .pipe(browserSync.stream({match: '**/*.css'}));
+        .pipe(gulp.dest('features/' + arg.feature + '/web/css'))
+        .pipe(browserSync.stream({ match: '**/*.css' }));
 });
 
 gulp.task('build-js', () => {
-    return gulp.src('src/js/**/*.js')
+    return gulp.src('features/' + arg.feature + '/src/js/**/*.js')
         .pipe(sourcemaps.init())
         .pipe(eslint())
         .pipe(concat('main.js'))
@@ -83,25 +102,26 @@ gulp.task('build-js', () => {
         .pipe(htmllint.failOnError())
         .pipe(babel({ presets: ['es2015'] }))
         .pipe(uglify())
-        .pipe(gulp.dest('web/js'));
+        .pipe(gulp.dest('features/' + arg.feature + '/web/js'));
 });
 
 gulp.task('serve', () => {
     browserSync.init({
         server: {
-            baseDir: "web",
+            baseDir: './',
             index: 'index.htm'
         },
         reloadDelay: 50,
         reloadDebounce: 250
     });
-    gulp.watch('src/*.htm',['build-html']).on('change', (e) => {
+    gulp.watch('features/' + arg.feature + '/src/*.htm', ['build-html']).on('change', (e) => {
         browserSync.reload();
     });
-    gulp.watch('src/scss/**/*.scss',['build-css']);
-    gulp.watch('src/js/**/*.js',['build-js']).on('change', (e) => {
+    gulp.watch('features/' + arg.feature + '/src/scss/**/*.scss', ['build-css']);
+    gulp.watch('features/' + arg.feature + '/src/js/**/*.js', ['build-js']).on('change', (e) => {
         browserSync.reload();
     });
 });
 
-gulp.task('default', ['clean', 'copy', 'build-html', 'build-css', 'build-js', 'serve']);
+gulp.task('develop', ['clean', 'copy', 'build-html', 'build-css', 'build-js', 'serve']);
+gulp.task('buildp', ['clean', 'copy', 'build-html', 'build-css', 'build-js']);
