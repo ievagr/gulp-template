@@ -124,4 +124,4 @@ gulp.task('serve', () => {
 });
 
 gulp.task('develop', ['clean', 'copy', 'build-html', 'build-css', 'build-js', 'serve']);
-gulp.task('buildp', ['clean', 'copy', 'build-html', 'build-css', 'build-js']);
+gulp.task('build', ['clean', 'copy', 'build-html', 'build-css', 'build-js']);
