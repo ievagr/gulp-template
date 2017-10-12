@@ -17,7 +17,10 @@ const gulp = require('gulp'),
     browserSync = require('browser-sync').create(),
     gutil = require('gulp-util'),
     access = require('gulp-accessibility'),
-    rename = require('gulp-rename');
+    rename = require('gulp-rename'),
+    gulpif = require('gulp-if');
+
+let env;
 
 const arg = (argList => {
     let arg = {},
@@ -38,7 +41,7 @@ const arg = (argList => {
 
 
 gulp.task('clean', () => {
-    del.sync(['web/*', 'web/media', '!/web/media/**']);
+    del.sync(['web/*', 'web/media', '!/web/media/**', 'reports/*']);
 });
 
 gulp.task('copy', () => {
@@ -53,7 +56,7 @@ gulp.task('copy', () => {
 
 gulp.task('build-html', () => {
     return gulp.src('src/*.htm')
-        .pipe(sourcemaps.init())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(htmllint({
             rules: {
                 'attr-no-dup': true,
@@ -77,6 +80,9 @@ gulp.task('build-html', () => {
         }))
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
+        .pipe(htmlmin({ collapseWhitespace: true }))
+        .pipe(sourcemaps.write())
+        .pipe(gulp.dest('web'))
         .pipe(access({
             force: true,
             browser: false,
@@ -86,14 +92,12 @@ gulp.task('build-html', () => {
         .on('error', console.log)
         .pipe(access.report({ reportType: 'json' }))
         .pipe(rename({ extname: '.json' }))
-        .pipe(gulp.dest('reports/ada-compliance'))
-        .pipe(htmlmin({ collapseWhitespace: true }))
-        .pipe(gulp.dest('web'));
+        .pipe(gulp.dest('reports/ada-compliance'));
 });
 
 gulp.task('build-css', () => {
     return gulp.src('src/scss/**/*.scss')
-        .pipe(sourcemaps.init())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(sassLint())
         .pipe(concat('styles.scss'))
         .pipe(sassLint.format())
@@ -101,26 +105,28 @@ gulp.task('build-css', () => {
         .pipe(sass())
         .pipe(autoprefixer('last 10 versions'))
         .pipe(cssnano())
+        .pipe(sourcemaps.write())
         .pipe(gulp.dest('web/css'))
         .pipe(browserSync.stream({ match: '**/*.css' }));
 });
 
 gulp.task('build-js', () => {
     return gulp.src('src/js/**/*.js')
-        .pipe(sourcemaps.init())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(eslint())
         .pipe(concat('main.js'))
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
         .pipe(babel({ presets: ['es2015'] }))
         .pipe(uglify())
+        .pipe(sourcemaps.write())
         .pipe(gulp.dest('web/js'));
 });
 
 gulp.task('serve', () => {
     browserSync.init({
         server: {
-            baseDir: './',
+            baseDir: './web/',
             index: 'index.htm'
         },
         reloadDelay: 50,
