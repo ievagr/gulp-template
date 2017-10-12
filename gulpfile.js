@@ -15,7 +15,12 @@ const gulp = require('gulp'),
     babel = require('gulp-babel'),
     uglify = require('gulp-uglify'),
     browserSync = require('browser-sync').create(),
-    gutil = require('gulp-util');
+    gutil = require('gulp-util'),
+    access = require('gulp-accessibility'),
+    rename = require('gulp-rename'),
+    gulpif = require('gulp-if');
+
+let env;
 
 const arg = (argList => {
     let arg = {},
@@ -36,22 +41,22 @@ const arg = (argList => {
 
 
 gulp.task('clean', () => {
-    del.sync(['features/' + arg.feature + '/web/*', '!features/' + arg.feature + '/web/media', '!features/' + arg.feature + '/web/media/**']);
+    del.sync(['web/*', 'web/media', '!/web/media/**', 'reports/*']);
 });
 
 gulp.task('copy', () => {
-    let icons_1 = gulp.src('features/' + arg.feature + '/src/font-icons/css/*.min.css')
-        .pipe(gulp.dest('features/' + arg.feature + '/web/font-icons/css')),
-        icons_2 = gulp.src('features/' + arg.feature + '/src/font-icons/fonts/*')
-        .pipe(gulp.dest('features/' + arg.feature + '/web/font-icons/fonts')),
-        plugins = gulp.src('features/' + arg.feature + '/src/plugins/**/*')
-        .pipe(gulp.dest('features/' + arg.feature + '/web/plugins'));
+    let icons_1 = gulp.src('src/font-icons/css/*.min.css')
+        .pipe(gulp.dest('web/font-icons/css')),
+        icons_2 = gulp.src('src/font-icons/fonts/*')
+        .pipe(gulp.dest('web/font-icons/fonts')),
+        plugins = gulp.src('src/plugins/**/*')
+        .pipe(gulp.dest('web/plugins'));
     merge(icons_1, icons_2, plugins);
 });
 
 gulp.task('build-html', () => {
-    return gulp.src('features/' + arg.feature + '/src/*.htm')
-        .pipe(sourcemaps.init())
+    return gulp.src('src/*.htm')
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(htmllint({
             rules: {
                 'attr-no-dup': true,
@@ -76,12 +81,23 @@ gulp.task('build-html', () => {
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
         .pipe(htmlmin({ collapseWhitespace: true }))
-        .pipe(gulp.dest('features/' + arg.feature + '/web'));
+        .pipe(sourcemaps.write())
+        .pipe(gulp.dest('web'))
+        .pipe(access({
+            force: true,
+            browser: false,
+            verbose: true,
+            accessibilityLevel: 'WCAG2A'
+        }))
+        .on('error', console.log)
+        .pipe(access.report({ reportType: 'json' }))
+        .pipe(rename({ extname: '.json' }))
+        .pipe(gulp.dest('reports/ada-compliance'));
 });
 
 gulp.task('build-css', () => {
-    return gulp.src('features/' + arg.feature + '/src/scss/**/*.scss')
-        .pipe(sourcemaps.init())
+    return gulp.src('src/scss/**/*.scss')
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(sassLint())
         .pipe(concat('styles.scss'))
         .pipe(sassLint.format())
@@ -89,36 +105,38 @@ gulp.task('build-css', () => {
         .pipe(sass())
         .pipe(autoprefixer('last 10 versions'))
         .pipe(cssnano())
-        .pipe(gulp.dest('features/' + arg.feature + '/web/css'))
+        .pipe(sourcemaps.write())
+        .pipe(gulp.dest('web/css'))
         .pipe(browserSync.stream({ match: '**/*.css' }));
 });
 
 gulp.task('build-js', () => {
-    return gulp.src('features/' + arg.feature + '/src/js/**/*.js')
-        .pipe(sourcemaps.init())
+    return gulp.src('src/js/**/*.js')
+        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
         .pipe(eslint())
         .pipe(concat('main.js'))
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
         .pipe(babel({ presets: ['es2015'] }))
         .pipe(uglify())
-        .pipe(gulp.dest('features/' + arg.feature + '/web/js'));
+        .pipe(sourcemaps.write())
+        .pipe(gulp.dest('web/js'));
 });
 
 gulp.task('serve', () => {
     browserSync.init({
         server: {
-            baseDir: './',
+            baseDir: './web/',
             index: 'index.htm'
         },
         reloadDelay: 50,
         reloadDebounce: 250
     });
-    gulp.watch('features/' + arg.feature + '/src/*.htm', ['build-html']).on('change', (e) => {
+    gulp.watch('src/*.htm', ['build-html']).on('change', (e) => {
         browserSync.reload();
     });
-    gulp.watch('features/' + arg.feature + '/src/scss/**/*.scss', ['build-css']);
-    gulp.watch('features/' + arg.feature + '/src/js/**/*.js', ['build-js']).on('change', (e) => {
+    gulp.watch('src/scss/**/*.scss', ['build-css']);
+    gulp.watch('src/js/**/*.js', ['build-js']).on('change', (e) => {
         browserSync.reload();
     });
 });
