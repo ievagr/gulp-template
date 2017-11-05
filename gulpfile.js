@@ -15,6 +15,7 @@ const gulp = require('gulp'),
     babel = require('gulp-babel'),
     uglify = require('gulp-uglify'),
     browserSync = require('browser-sync').create(),
+    htmlInjector = require("bs-html-injector"),
     gutil = require('gulp-util'),
     access = require('gulp-accessibility'),
     rename = require('gulp-rename'),
@@ -124,6 +125,9 @@ gulp.task('build-js', () => {
 });
 
 gulp.task('serve', () => {
+    browserSync.use(htmlInjector, {
+        files: 'web/*.htm'
+    });
     browserSync.init({
         server: {
             baseDir: './web/',
@@ -132,9 +136,11 @@ gulp.task('serve', () => {
         reloadDelay: 50,
         reloadDebounce: 250
     });
+    gulp.watch('src/*.htm', ['build-html']);
+    /*Uncomment if not using HTML injection.
     gulp.watch('src/*.htm', ['build-html']).on('change', (e) => {
         browserSync.reload();
-    });
+    });*/
     gulp.watch('src/scss/**/*.scss', ['build-css']);
     gulp.watch('src/js/**/*.js', ['build-js']).on('change', (e) => {
         browserSync.reload();
