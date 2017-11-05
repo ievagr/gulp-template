@@ -1,0 +1,21 @@
+{
+    "paths":
+    {
+        "src": "/src",
+        "dist": "/web",
+        "reports": "/reports"
+    },
+    "html":
+    {
+        "adaCompliance":
+        {
+            "enabled": true,
+            "force": true,
+            "browser": false,
+            "verbose": true,
+            "accessibilityLevel": "WCAG2A",
+            "reportPath": "ada-compliance",
+            "reportType": "json"
+        }
+    }
+}

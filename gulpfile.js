@@ -1,6 +1,8 @@
 'use strict';
 
-const gulp = require('gulp'),
+const fs = require('fs'),
+    config = JSON.parse(fs.readFileSync('./config.json')),
+    gulp = require('gulp'),
     del = require('del'),
     merge = require('merge-stream'),
     sourcemaps = require('gulp-sourcemaps'),
