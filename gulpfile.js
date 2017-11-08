@@ -133,6 +133,15 @@ gulp.task('serve', () => {
             baseDir: './web/',
             index: 'index.htm'
         },
+        /*Uncomment if using a proxy and injecting CSS.
+        proxy: '~yourURL~',
+        serveStatic: ['web/css'],
+        rewriteRules: [{
+            match: new RegExp('~what-to-match.css~'),
+            fn: () => {
+                return "styles.css"
+            }
+        }],*/
         reloadDelay: 50,
         reloadDebounce: 250
     });
