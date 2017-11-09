@@ -82,7 +82,7 @@ gulp.task('build-html', () => {
         .pipe(htmllint.format())
         .pipe(htmllint.failOnError())
         .pipe(htmlmin({ collapseWhitespace: true }))
-        .pipe(sourcemaps.write())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
         .pipe(gulp.dest('web'))
         .pipe(access({
             force: true,
@@ -106,7 +106,7 @@ gulp.task('build-css', () => {
         .pipe(sass())
         .pipe(autoprefixer('last 10 versions'))
         .pipe(cssnano())
-        .pipe(sourcemaps.write())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
         .pipe(gulp.dest('web/css'))
         .pipe(browserSync.stream({ match: '**/*.css' }));
 });
@@ -114,13 +114,13 @@ gulp.task('build-css', () => {
 gulp.task('build-js', () => {
     return gulp.src('src/js/**/*.js')
         .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
-        .pipe(eslint())
         .pipe(concat('main.js'))
-        .pipe(htmllint.format())
-        .pipe(htmllint.failOnError())
+        .pipe(eslint({fix:true}))
+        .pipe(eslint.format())
+        .pipe(eslint.failAfterError())
         .pipe(babel({ presets: ['es2015'] }))
         .pipe(uglify())
-        .pipe(sourcemaps.write())
+        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
         .pipe(gulp.dest('web/js'));
 });
 
