@@ -133,7 +133,20 @@ gulp.task('serve', () => {
             baseDir: './web/',
             index: 'index.htm'
         },
-        /*Uncomment if using a proxy and injecting CSS.
+
+        /*Uncomment if injecting additional CSS into a proxied website.
+        proxy: '~yourURL~',
+        serveStatic: ["web/"],
+        snippetOptions: {
+            rule: {
+                match: /<\/head>/i,
+                fn: function (snippet, match) {
+                    return '<link rel="stylesheet" type="text/css" href="/css/styles.css"/>' + snippet + match;
+                }
+            }
+        },*/
+
+        /*Uncomment to inject AND overwrite a CSS file.
         proxy: '~yourURL~',
         serveStatic: ['web/css'],
         rewriteRules: [{
@@ -142,6 +155,7 @@ gulp.task('serve', () => {
                 return "styles.css"
             }
         }],*/
+
         reloadDelay: 50,
         reloadDebounce: 250
     });
