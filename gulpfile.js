@@ -9,6 +9,7 @@ const gulp = require('gulp'),
     htmlmin = require('gulp-htmlmin'),
     sassLint = require('gulp-sass-lint'),
     sass = require('gulp-sass'),
+    cssComb = require('gulp-csscomb'),
     autoprefixer = require('gulp-autoprefixer'),
     cssnano = require('gulp-cssnano'),
     eslint = require('gulp-eslint'),
@@ -19,9 +20,40 @@ const gulp = require('gulp'),
     gutil = require('gulp-util'),
     access = require('gulp-accessibility'),
     rename = require('gulp-rename'),
-    gulpif = require('gulp-if');
+    gulpif = require('gulp-if'),
+    webpack = require('webpack'),
+    webpackStream = require('webpack-stream'),
+    webpackConfig = require('./webpack.config.js'),
+    prettify = require('gulp-jsbeautifier');
 
-let env;
+const htmlFiles = ['src/app/html/**/*.html'],
+    cssFiles = ['src/app/scss/**/*.scss'],
+    jsFiles = ['src/app/js/**/*.js'];
+
+const htmlLintRules = {
+    'attr-no-dup': true,
+    'id-no-dup': true,
+    'img-req-alt': true,
+    'attr-name-style': 'dash',
+    'doctype-html5': true,
+    'line-end-style': false,
+    'tag-bans': ['align', 'background', 'bgcolor', 'border', 'frameborder', 'longdesc', 'marginwidth', 'marginheight', 'scrolling', 'style', 'width'],
+    'id-class-style': 'dash',
+    'img-req-src': false,
+    'input-radio-req-name': true,
+    'input-req-label': true,
+    'label-req-for': true,
+    'spec-char-escape': true,
+    'tag-close': true,
+    'tag-name-lowercase': true,
+    'tag-name-match': true,
+    'title-no-dup': true
+};
+
+let env,
+    pendingHTML = false,
+    pendingCSS = false,
+    pendingJS = false;
 
 const arg = (argList => {
     let arg = {},
@@ -40,98 +72,157 @@ const arg = (argList => {
     return arg;
 })(process.argv);
 
-
 gulp.task('clean', () => {
-    del.sync(['web/*', 'web/media', '!/web/media/**', 'reports/*']);
+    /* del.sync(['web/*', 'web/media', '!/web/media/**', 'reports/*']); */
+    del.sync(['www/*']);
 });
 
 gulp.task('copy', () => {
     let icons_1 = gulp.src('src/font-icons/css/*.min.css')
         .pipe(gulp.dest('web/font-icons/css')),
         icons_2 = gulp.src('src/font-icons/fonts/*')
-        .pipe(gulp.dest('web/font-icons/fonts')),
+            .pipe(gulp.dest('web/font-icons/fonts')),
         plugins = gulp.src('src/plugins/**/*')
-        .pipe(gulp.dest('web/plugins'));
+            .pipe(gulp.dest('web/plugins'));
     merge(icons_1, icons_2, plugins);
 });
 
 gulp.task('build-html', () => {
-    return gulp.src('src/*.htm')
-        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
-        .pipe(htmllint({
-            rules: {
-                'attr-no-dup': true,
-                'id-no-dup': true,
-                'img-req-alt': true,
-                'attr-name-style': 'dash',
-                'doctype-html5': true,
-                'line-end-style': false,
-                'tag-bans': ['align', 'background', 'bgcolor', 'border', 'frameborder', 'longdesc', 'marginwidth', 'marginheight', 'scrolling', 'style', 'width'],
-                'id-class-style': 'dash',
-                'img-req-src': false,
-                'input-radio-req-name': true,
-                'input-req-label': true,
-                'label-req-for': true,
-                'spec-char-escape': true,
-                'tag-close': true,
-                'tag-name-lowercase': true,
-                'tag-name-match': true,
-                'title-no-dup': true
-            }
-        }))
-        .pipe(htmllint.format())
-        .pipe(htmllint.failOnError())
-        .pipe(htmlmin({ collapseWhitespace: true }))
-        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
-        .pipe(gulp.dest('web'))
-        .pipe(access({
-            force: true,
-            browser: false,
-            verbose: true,
-            accessibilityLevel: 'WCAG2A'
-        }))
-        .on('error', console.log)
-        .pipe(access.report({ reportType: 'json' }))
-        .pipe(rename({ extname: '.json' }))
-        .pipe(gulp.dest('reports/ada-compliance'));
+    buildHTML().then(() => {
+        return null;
+    });
 });
 
 gulp.task('build-css', () => {
-    return gulp.src('src/scss/**/*.scss')
-        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
-        .pipe(sassLint())
-        .pipe(concat('styles.scss'))
-        .pipe(sassLint.format())
-        .pipe(sassLint.failOnError())
-        .pipe(sass())
-        .pipe(autoprefixer('last 10 versions'))
-        .pipe(cssnano())
-        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
-        .pipe(gulp.dest('web/css'))
-        .pipe(browserSync.stream({ match: '**/*.css' }));
+    buildCSS().then(() => {
+        return null;
+    });
 });
 
 gulp.task('build-js', () => {
-    return gulp.src('src/js/**/*.js')
-        .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
-        .pipe(concat('main.js'))
-        .pipe(eslint({fix:true}))
-        .pipe(eslint.format())
-        .pipe(eslint.failAfterError())
-        .pipe(babel({ presets: ['es2015'] }))
-        .pipe(uglify())
-        .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
-        .pipe(gulp.dest('web/js'));
+    buildJS().then(() => {
+        return null;
+    });
 });
+
+function buildHTML(file = [...htmlFiles]) {
+    pendingHTML = true;
+
+    return new Promise((resolve) => {
+        prettifyFiles(file).then(() => {
+            new Promise((resolve) => {
+                gulp.src(file, { base: './' })
+                    .pipe(htmllint({
+                        rules: htmlLintRules
+                    }))
+                    .pipe(htmllint.format())
+                    .pipe(gulp.dest('./'))
+                    .on('end', resolve);
+            }).then(() => {
+                setTimeout(() => {
+                    pendingHTML = false;
+                }, 100);
+
+                gulp.src(file)
+                    .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
+                    .pipe(htmlmin({ collapseWhitespace: true }))
+                    .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
+                    .pipe(gulp.dest('www'))
+                    .pipe(access({
+                        force: true,
+                        browser: false,
+                        verbose: true,
+                        accessibilityLevel: 'WCAG2A'
+                    }))
+                    .on('error', console.log)
+                    .pipe(access.report({ reportType: 'json' }))
+                    .pipe(rename({ extname: '.json' }))
+                    .pipe(gulp.dest('reports/ada-compliance'))
+                    .on('end', resolve);
+            });
+        });
+    });
+}
+
+function buildCSS(file = [...cssFiles]) {
+    pendingCSS = true;
+
+    return new Promise((resolve) => {
+        new Promise((resolve) => {
+            prettifyFiles(file).then(() => {
+                gulp.src(file, { base: './' })
+                    .pipe(cssComb())
+                    .pipe(sassLint())
+                    .pipe(sassLint.format())
+                    .pipe(cssComb())
+                    .pipe(gulp.dest('./'))
+                    .on('end', resolve);
+            });
+        }).then(() => {
+            setTimeout(() => {
+                pendingCSS = false;
+            }, 100);
+
+            gulp.src('src/app/scss/**/*.scss')
+                .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
+                .pipe(concat('styles.scss'))
+                .pipe(sass())
+                .pipe(autoprefixer('last 10 versions'))
+                .pipe(cssnano())
+                .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
+                .pipe(gulp.dest('www/css'))
+                .pipe(browserSync.stream({ match: '**/*.css' }))
+                .on('end', resolve);
+        });
+    });
+}
+
+function buildJS(file = [...jsFiles]) {
+    pendingJS = true;
+
+    return new Promise((resolve) => {
+        new Promise((resolve) => {
+            prettifyFiles(file).then(() => {
+                gulp.src(file, { base: './' })
+                    .pipe(eslint({ fix: true }))
+                    .pipe(eslint.format())
+                    .pipe(gulp.dest('./'))
+                    .on('end', resolve);
+            });
+        }).then(() => {
+            setTimeout(() => {
+                pendingJS = false;
+            }, 100);
+
+            gulp.src('src/app/js/index.js')
+                .pipe(gulpif(arg.sourcemap, sourcemaps.init()))
+                .pipe(webpackStream(webpackConfig), webpack)
+                .pipe(concat('main.js')).pipe(babel({ presets: ['es2015'] }))
+                .pipe(uglify())
+                .pipe(gulpif(arg.sourcemap, sourcemaps.write()))
+                .pipe(gulp.dest('www/js'))
+                .on('end', resolve);
+        });
+    });
+}
+
+function prettifyFiles(files) {
+    return new Promise((resolve) => {
+        gulp.src(files, { base: './' })
+            .pipe(prettify())
+            .pipe(gulp.dest('./'))
+            .on('end', resolve);
+    });
+}
 
 gulp.task('serve', () => {
     browserSync.use(htmlInjector, {
-        files: 'web/*.htm'
+        files: 'www/*.html'
     });
     browserSync.init({
         server: {
-            baseDir: './web/',
-            index: 'index.htm'
+            baseDir: './www/',
+            index: 'index.html'
         },
 
         /*Uncomment if injecting additional CSS into a proxied website.
@@ -159,14 +250,28 @@ gulp.task('serve', () => {
         reloadDelay: 50,
         reloadDebounce: 250
     });
-    gulp.watch('src/*.htm', ['build-html']);
-    /*Uncomment if not using HTML injection.
-    gulp.watch('src/*.htm', ['build-html']).on('change', (e) => {
-        browserSync.reload();
-    });*/
-    gulp.watch('src/scss/**/*.scss', ['build-css']);
-    gulp.watch('src/js/**/*.js', ['build-js']).on('change', (e) => {
-        browserSync.reload();
+
+    gulp.watch(htmlFiles).on('change', (e) => {
+        if ((e.type === 'added' || e.type === 'changed') && !pendingHTML) {
+            buildHTML(e.path).then(() => {
+                // Uncomment if not using HTML injection.
+                //browserSync.reload();
+            });
+        }
+    });
+
+    gulp.watch(cssFiles).on('change', (e) => {
+        if ((e.type === 'added' || e.type === 'changed') && !pendingCSS) {
+            buildCSS(e.path);
+        }
+    });
+
+    gulp.watch(jsFiles).on('change', (e) => {
+        if ((e.type === 'added' || e.type === 'changed') && !pendingJS) {
+            buildJS(e.path).then(() => {
+                browserSync.reload();
+            });
+        }
     });
 });
 

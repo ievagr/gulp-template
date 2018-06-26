@@ -13,13 +13,17 @@
             "warn",
             4
         ],
+        "space-before-function-paren": [
+            "error",
+            "always"
+        ],
         "linebreak-style": [
             "error",
             "windows"
         ],
         "quotes": [
             "warn",
-            "single"
+            "backtick"
         ],
         "semi": [
             "error",
@@ -27,6 +31,7 @@
         ],
         "no-unused-vars": [
             "warn",
-            "all"]
+            "all"
+        ]
     }
 }
